@@ -1,0 +1,218 @@
+1. UIワイヤーフレーム
+1.1 レイアウト（論理構造）
+
++------------------------------------------------------+
+|  GPX → CSV 変換ツール                                |
++------------------------------------------------------+
+
+[入力ファイル]
++----------------------------------------------+ [参照]
+| C:\path\to\file.gpx                          |
++----------------------------------------------+
+
+[アンテナ高 (m)]
++------------------+
+| 1.8              |
++------------------+
+
+[実行]  [終了]
+
+[進捗]
++----------------------------------------------+
+| ████████-------------------- 35%             |
++----------------------------------------------+
+
+[ログ]
++------------------------------------------------------+
+| ファイル読み込み開始                                  |
+| waypoint数: 120                                      |
+| 処理中: P001                                         |
+| 処理中: P002                                         |
+| ...                                                  |
++------------------------------------------------------+
+
+
+1.2 UI要素定義
+要素	種別	備考
+ファイルパス	Entry	読み取り専用でも可
+参照ボタン	Button	ファイルダイアログ
+アンテナ高	Entry	数値制限
+実行ボタン	Button	条件成立で有効化
+終了ボタン	Button	設定保存トリガ
+プログレスバー	ProgressBar	determinate
+ログ	Text/ScrolledText	追記型
+
+
+1.3 D&D仕様
+ウィンドウ全体で受け付け
+drop時：
+単一GPX → 読み込み
+その他 → エラー
+
+
+2.2 各クラス詳細
+MainApp
+
+役割
+
+アプリ起動・終了管理
+
+責務
+
+UI初期化
+Config読込
+イベントループ開始
+
+
+UIController
+
+役割
+
+UI構築とイベント処理
+
+主なメソッド
+
+select_file()
+on_drop(file)
+on_execute()
+update_progress(value)
+append_log(msg)
+show_error(msg)
+show_success(msg)
+
+ConversionController
+
+役割
+
+処理全体のオーケストレーション
+
+主な処理
+validate → parse → transform → write
+
+主なメソッド
+
+run(input_path, antenna_height)
+validate_input()
+handle_error(e)
+
+GPXParser
+
+役割
+
+GPX解析
+
+出力
+List[Waypoint]
+
+Waypoint構造
+name, lat, lon, ele, time
+
+CoordinateTransformer
+役割
+座標変換（pyproj）
+メソッド
+transform(lat, lon) -> (x, y)
+
+
+CSVWriter
+役割
+CSV出力
+メソッド
+write(rows, output_path)
+
+ConfigManager
+役割
+設定保存・読込
+保存内容
+last_file
+antenna_height
+メソッド
+load()
+save()
+
+Logger
+役割
+UIログ統合
+メソッド
+log(msg)
+UIControllerへ通知
+
+2.3 スレッド構成
+Main Thread (UI)
+ └─ Worker Thread
+      └─ ConversionController.run()
+
+
+通信方式
+Queue または callback
+
+
+
+3. PyInstallerビルド手順（onedir + pyproj）
+3.1 前提
+仮想環境推奨
+pyprojインストール済
+3.2 必要確認
+
+pyprojデータ位置確認：
+python -c "import pyproj; print(pyproj.datadir.get_data_dir())"
+
+
+3.3 ディレクトリ構成
+project/
+ ├─ main.py
+ ├─ ini/
+ └─ build/
+
+3.4 ビルドコマンド（基本）
+pyinstaller main.py ^
+  --name gpx2csv ^
+  --onedir ^
+  --noconsole ^
+  --add-data "C:\path\to\proj;proj"
+※Windowsなので ; 区切り
+
+
+3.5 実行時設定（必須）
+
+アプリ起動時：
+import os
+import sys
+
+def setup_proj():
+    if hasattr(sys, '_MEIPASS'):
+        base = sys._MEIPASS
+    else:
+        base = os.path.dirname(__file__)
+
+    proj_path = os.path.join(base, "proj")
+    os.environ["PROJ_LIB"] = proj_path
+
+3.6 hidden-import（必要な場合）
+--hidden-import pyproj
+--hidden-import pyproj.datadir
+
+
+3.7 出力構成
+dist/gpx2csv/
+ ├─ gpx2csv.exe
+ ├─ proj/
+ │   └─ proj.db
+ ├─ python*.dll
+ └─ その他
+
+3.8 配布方法
+distフォルダごと配布
+ZIP圧縮推奨
+
+4. 実装優先順位
+コア処理（CLIベース）
+UI実装
+スレッド化
+ログ統合
+ビルド
+
+5. 注意事項
+UIスレッドで重処理を行わない
+pyprojパス未設定で必ずエラーになる
+D&DはGUIライブラリ依存（Tkinterなら追加実装必要）

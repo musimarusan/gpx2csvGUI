@@ -1,0 +1,4 @@
+pyinstaller main.py --name gpx2csv --onedir --noconsole --add-data "C:\OSGeo4W\share\proj;proj"
+
+
+python -m PyInstaller main.py --name gpx2csv --onedir --noconsole --add-data "C:\OSGeo4W\share\proj;proj" --hidden-import PySide6 --hidden-import PySide6.QtWidgets --hidden-import PySide6.QtCore --hidden-import PySide6.QtGui
